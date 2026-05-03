@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useI18nStore } from "../../../src/shared/stores/i18nStore";
 
 const en = {
   // Navigation
@@ -205,7 +204,7 @@ const zh: Record<P4TranslationKey, string> = {
 const translations: Record<string, Record<P4TranslationKey, string>> = { en, zh };
 
 export function useP4T() {
-  const locale = useI18nStore((s) => s.locale);
+  const locale = getLocale();
   const dict = translations[locale] ?? en;
 
   return useCallback((key: P4TranslationKey): string => {
@@ -214,3 +213,9 @@ export function useP4T() {
 }
 
 export type { P4TranslationKey };
+
+function getLocale(): "en" | "zh" {
+  const stored = window.localStorage.getItem("hf:locale");
+  if (stored === "zh" || stored === "en") return stored;
+  return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}

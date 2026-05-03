@@ -1,0 +1,99 @@
+{
+  "$schema": "https://haloforge.dev/schemas/plugin/v1.json",
+  "id": "dev.haloforge.p4",
+  "name": "Perforce Integration",
+  "version": "1.0.0",
+  "description": "Perforce (P4) workspace management inside DevKit — multi-server, pending changelists, sync, submit, revert, shelve and workflow steps.",
+  "long_description": "Adds a Perforce tab to DevKit with support for multiple server configurations (P4PORT/P4USER/P4CLIENT/P4PASSWD per workspace), opened-file tracking, pending and submitted changelist browsing, selective sync by path or changelist, submit with description, revert, and shelve/unshelve. Also registers p4_sync, p4_submit, and p4_revert_unchanged workflow step types.",
+  "author": "HaloForge Team",
+  "homepage": "https://github.com/HaloForgeAI/hf-plugin-p4",
+  "license": "MIT",
+  "keywords": ["perforce", "p4", "vcs", "devkit", "workflow"],
+
+  "compatibility": {
+    "min_app_version": "1.0.0",
+    "platforms": ["windows", "macos", "linux"]
+  },
+
+  "capability_levels": [1, 4],
+
+  "integration": {
+    "level1": {
+      "parent_module": "devkit",
+      "tab_id": "p4",
+      "tab_label": "Perforce",
+      "tab_icon": "Layers",
+      "tab_position": "after:git",
+      "panel_entry": "frontend/index.js"
+    },
+    "level4": {
+      "workflow_step_types": ["p4_sync", "p4_submit", "p4_revert_unchanged"]
+    }
+  },
+
+  "entry": {
+    "native": {
+      "macos_arm64":   "native/aarch64-apple-darwin.dylib",
+      "macos_x64":     "native/x86_64-apple-darwin.dylib",
+      "windows_x64":   "native/x86_64-pc-windows-msvc.dll",
+      "windows_arm64": "native/aarch64-pc-windows-msvc.dll",
+      "linux_x64":     "native/x86_64-unknown-linux-gnu.so",
+      "linux_arm64":   "native/aarch64-unknown-linux-gnu.so"
+    },
+    "frontend": "frontend/index.js",
+    "frontend_styles": "frontend/styles.css"
+  },
+
+  "permissions": [
+    { "type": "ipc_register" },
+    { "type": "process_spawn_whitelist", "value": ["p4"] },
+    { "type": "filesystem_read" },
+    { "type": "database_create_tables" },
+    { "type": "events_emit" },
+    { "type": "events_listen" }
+  ],
+
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "p4_executable": {
+        "type": "string",
+        "title": "P4 executable path",
+        "description": "Override the p4 executable path (leave empty to use system PATH)",
+        "default": ""
+      },
+      "sync_parallel_threads": {
+        "type": "number",
+        "title": "Parallel sync threads",
+        "description": "Number of parallel threads for p4 sync (0 = server default)",
+        "minimum": 0,
+        "maximum": 32,
+        "default": 0
+      },
+      "max_history_entries": {
+        "type": "number",
+        "title": "History entries to show",
+        "minimum": 5,
+        "maximum": 200,
+        "default": 50
+      }
+    }
+  },
+
+  "commands": [
+    { "id": "p4_saved_workspaces",    "description": "List saved Perforce workspace configurations" },
+    { "id": "p4_upsert_workspace",    "description": "Add or update a workspace configuration" },
+    { "id": "p4_remove_workspace",    "description": "Remove a saved workspace configuration" },
+    { "id": "p4_test_connection",     "description": "Test connection and fetch P4 info for a workspace" },
+    { "id": "p4_opened",              "description": "List files currently opened for edit/add/delete" },
+    { "id": "p4_pending_changes",     "description": "List all pending changelists" },
+    { "id": "p4_submitted_changes",   "description": "List recently submitted changelists" },
+    { "id": "p4_sync",                "description": "Sync workspace (full, by path, or to a changelist)" },
+    { "id": "p4_revert",              "description": "Revert opened files (all or specific files)" },
+    { "id": "p4_revert_unchanged",    "description": "Revert files that have not been modified (p4 revert -a)" },
+    { "id": "p4_submit",              "description": "Submit a changelist" },
+    { "id": "p4_shelve",              "description": "Shelve files in a pending changelist" },
+    { "id": "p4_unshelve",            "description": "Unshelve files from a shelved changelist" },
+    { "id": "p4_diff",                "description": "Show unified diff of all opened files" }
+  ]
+}

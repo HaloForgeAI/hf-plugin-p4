@@ -6,7 +6,7 @@
   "description": "Perforce (P4) workspace management inside DevKit — multi-server, pending changelists, sync, submit, revert, shelve and workflow steps.",
   "long_description": "Adds a Perforce tab to DevKit with support for multiple server configurations (P4PORT/P4USER/P4CLIENT/P4PASSWD per workspace), opened-file tracking, pending and submitted changelist browsing, selective sync by path or changelist, submit with description, revert, and shelve/unshelve. Also registers p4_sync, p4_submit, and p4_revert_unchanged workflow step types.",
   "author": "HaloForge Team",
-  "homepage": "https://github.com/HaloForgeAI/hf-plugin-p4",
+  "homepage": "https://haloforge.link/catalog/plugins/p4",
   "license": "MIT",
   "keywords": ["perforce", "p4", "vcs", "devkit", "workflow"],
 

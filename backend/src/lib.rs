@@ -26,7 +26,7 @@ impl HaloForgePlugin for P4Plugin {
         PluginMetadata {
             id: "dev.haloforge.p4".into(),
             name: "Perforce Integration".into(),
-            version: "1.0.0".into(),
+            version: "1.0.2".into(),
             description: "Perforce workspace management inside DevKit.".into(),
             author: "HaloForge Team".into(),
             abi_version: PLUGIN_ABI_VERSION,
@@ -186,3 +186,5 @@ impl HaloForgePlugin for P4Plugin {
         workflow_steps::execute(step_type, config, ctx)
     }
 }
+
+hf_plugin_api::declare_plugin!(P4Plugin, P4Plugin::new);

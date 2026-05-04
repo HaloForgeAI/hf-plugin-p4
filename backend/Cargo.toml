@@ -1,6 +1,6 @@
 [package]
 name = "hf-plugin-p4"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "HaloForge built-in Perforce (P4) Integration plugin (backend)"
 

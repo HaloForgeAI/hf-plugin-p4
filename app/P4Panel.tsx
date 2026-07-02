@@ -65,7 +65,7 @@ export function P4Panel() {
   }, [loadWorkspaces, handleSelectWorkspace]);
 
   return (
-    <div className="space-y-3">
+    <div className="hf-p4-panel space-y-3">
       {error && page === "workspaces" && (
         <FeedbackBanner tone="error" message={error} onClose={() => setError(null)} />
       )}

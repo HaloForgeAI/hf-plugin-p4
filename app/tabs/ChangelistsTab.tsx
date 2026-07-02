@@ -4,12 +4,14 @@ import type { P4Changelist } from "../types";
 export function ChangelistsTab({
   changelists,
   emptyKey,
+  onDescribe,
   onShelve,
   onUnshelve,
   busy,
 }: {
   changelists: P4Changelist[];
   emptyKey: "p4.pending.empty" | "p4.history.empty";
+  onDescribe?: (cl: string) => void;
   onShelve?: (cl: string) => void;
   onUnshelve?: (cl: string) => void;
   busy: boolean;
@@ -35,15 +37,24 @@ export function ChangelistsTab({
               {cl.user}@{cl.client} · {cl.date}
             </p>
           </div>
-          {(onShelve || onUnshelve) && (
+          {(onDescribe || onShelve || onUnshelve) && (
             <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onDescribe && (
+                <button
+                  onClick={() => onDescribe(cl.number)}
+                  disabled={busy}
+                  className="rounded-md px-2 py-1 text-[10px] text-foreground-secondary/60 hover:bg-surface hover:text-foreground transition-colors"
+                >
+                  {t("p4.action.details")}
+                </button>
+              )}
               {onShelve && (
                 <button
                   onClick={() => onShelve(cl.number)}
                   disabled={busy}
                   className="rounded-md px-2 py-1 text-[10px] text-foreground-secondary/60 hover:bg-surface hover:text-foreground transition-colors"
                 >
-                  shelve
+                  {t("p4.action.shelve")}
                 </button>
               )}
               {onUnshelve && (
@@ -52,7 +63,7 @@ export function ChangelistsTab({
                   disabled={busy}
                   className="rounded-md px-2 py-1 text-[10px] text-foreground-secondary/60 hover:bg-surface hover:text-foreground transition-colors"
                 >
-                  unshelve
+                  {t("p4.action.unshelve")}
                 </button>
               )}
             </div>

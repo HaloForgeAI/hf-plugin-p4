@@ -85,6 +85,7 @@
     { "id": "p4_upsert_workspace",    "description": "Add or update a workspace configuration" },
     { "id": "p4_remove_workspace",    "description": "Remove a saved workspace configuration" },
     { "id": "p4_test_connection",     "description": "Test connection and fetch P4 info for a workspace" },
+    { "id": "p4_test_config",         "description": "Test Perforce connection details without saving a workspace" },
     { "id": "p4_opened",              "description": "List files currently opened for edit/add/delete" },
     { "id": "p4_pending_changes",     "description": "List all pending changelists" },
     { "id": "p4_submitted_changes",   "description": "List recently submitted changelists" },
@@ -94,6 +95,7 @@
     { "id": "p4_submit",              "description": "Submit a changelist" },
     { "id": "p4_shelve",              "description": "Shelve files in a pending changelist" },
     { "id": "p4_unshelve",            "description": "Unshelve files from a shelved changelist" },
-    { "id": "p4_diff",                "description": "Show unified diff of all opened files" }
+    { "id": "p4_diff",                "description": "Show unified diff of all opened files or selected files" },
+    { "id": "p4_describe",            "description": "Show details for a Perforce changelist" }
   ]
 }

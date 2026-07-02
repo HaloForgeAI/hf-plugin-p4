@@ -8,10 +8,12 @@ import { actionIcon, actionColor, fileBasename, depotDir } from "../components/f
 export function OpenedFilesTab({
   files,
   onRevertFile,
+  onDiffFile,
   busy,
 }: {
   files: OpenedFile[];
   onRevertFile: (depotPath: string) => void;
+  onDiffFile: (depotPath: string) => void;
   busy: boolean;
 }) {
   const t = useP4T();
@@ -75,11 +77,18 @@ export function OpenedFilesTab({
                   {f.file_type}
                 </span>
                 <button
+                  onClick={() => onDiffFile(f.depot_path)}
+                  disabled={busy}
+                  className="shrink-0 rounded-md px-2 py-1 text-[10px] text-foreground-secondary/40 opacity-0 group-hover:opacity-100 hover:bg-surface hover:text-foreground disabled:cursor-not-allowed transition-all"
+                >
+                  {t("p4.action.diff")}
+                </button>
+                <button
                   onClick={() => onRevertFile(f.depot_path)}
                   disabled={busy}
                   className="shrink-0 rounded-md px-2 py-1 text-[10px] text-foreground-secondary/40 opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error disabled:cursor-not-allowed transition-all"
                 >
-                  revert
+                  {t("p4.action.revert")}
                 </button>
               </div>
             ))}

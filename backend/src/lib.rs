@@ -1,6 +1,6 @@
 use hf_plugin_api::{
-    HaloForgePlugin, IpcRegistrar, LogLevel, PluginContext, PluginError,
-    PluginMetadata, WorkflowStepTypeDefinition, PLUGIN_ABI_VERSION,
+    HaloForgePlugin, IpcRegistrar, LogLevel, PluginContext, PluginError, PluginMetadata,
+    WorkflowStepTypeDefinition, PLUGIN_ABI_VERSION,
 };
 use serde_json::Value;
 
@@ -67,23 +67,40 @@ impl HaloForgePlugin for P4Plugin {
         )?;
 
         // ── Register IPC commands ──────────────────────────────────────────
-        ipc.register("p4_saved_workspaces",  Box::new(commands::p4_saved_workspaces))?;
-        ipc.register("p4_upsert_workspace",  Box::new(commands::p4_upsert_workspace))?;
-        ipc.register("p4_remove_workspace",  Box::new(commands::p4_remove_workspace))?;
-        ipc.register("p4_test_connection",   Box::new(commands::p4_test_connection))?;
-        ipc.register("p4_opened",            Box::new(commands::p4_opened))?;
-        ipc.register("p4_pending_changes",   Box::new(commands::p4_pending_changes))?;
-        ipc.register("p4_submitted_changes", Box::new(commands::p4_submitted_changes))?;
-        ipc.register("p4_sync",              Box::new(commands::p4_sync))?;
-        ipc.register("p4_revert",            Box::new(commands::p4_revert))?;
-        ipc.register("p4_revert_unchanged",  Box::new(commands::p4_revert_unchanged))?;
-        ipc.register("p4_submit",            Box::new(commands::p4_submit))?;
-        ipc.register("p4_shelve",            Box::new(commands::p4_shelve))?;
-        ipc.register("p4_unshelve",          Box::new(commands::p4_unshelve))?;
-        ipc.register("p4_diff",              Box::new(commands::p4_diff))?;
-        ipc.register("p4_saved_bookmarks",   Box::new(commands::p4_saved_bookmarks))?;
-        ipc.register("p4_upsert_bookmark",   Box::new(commands::p4_upsert_bookmark))?;
-        ipc.register("p4_remove_bookmark",   Box::new(commands::p4_remove_bookmark))?;
+        ipc.register(
+            "p4_saved_workspaces",
+            Box::new(commands::p4_saved_workspaces),
+        )?;
+        ipc.register(
+            "p4_upsert_workspace",
+            Box::new(commands::p4_upsert_workspace),
+        )?;
+        ipc.register(
+            "p4_remove_workspace",
+            Box::new(commands::p4_remove_workspace),
+        )?;
+        ipc.register("p4_test_connection", Box::new(commands::p4_test_connection))?;
+        ipc.register("p4_test_config", Box::new(commands::p4_test_config))?;
+        ipc.register("p4_opened", Box::new(commands::p4_opened))?;
+        ipc.register("p4_pending_changes", Box::new(commands::p4_pending_changes))?;
+        ipc.register(
+            "p4_submitted_changes",
+            Box::new(commands::p4_submitted_changes),
+        )?;
+        ipc.register("p4_sync", Box::new(commands::p4_sync))?;
+        ipc.register("p4_revert", Box::new(commands::p4_revert))?;
+        ipc.register(
+            "p4_revert_unchanged",
+            Box::new(commands::p4_revert_unchanged),
+        )?;
+        ipc.register("p4_submit", Box::new(commands::p4_submit))?;
+        ipc.register("p4_shelve", Box::new(commands::p4_shelve))?;
+        ipc.register("p4_unshelve", Box::new(commands::p4_unshelve))?;
+        ipc.register("p4_diff", Box::new(commands::p4_diff))?;
+        ipc.register("p4_describe", Box::new(commands::p4_describe))?;
+        ipc.register("p4_saved_bookmarks", Box::new(commands::p4_saved_bookmarks))?;
+        ipc.register("p4_upsert_bookmark", Box::new(commands::p4_upsert_bookmark))?;
+        ipc.register("p4_remove_bookmark", Box::new(commands::p4_remove_bookmark))?;
 
         // ── Register workflow step types ───────────────────────────────────
         ipc.register_workflow_step_type(WorkflowStepTypeDefinition {

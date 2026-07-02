@@ -57,19 +57,12 @@ export function WorkspaceListPage({
     setSaving(true);
     setTestResult(null);
     try {
-      const res = await p4Invoke<{ workspace: { id: string } }>("p4_upsert_workspace", {
-        id:       form.id,
-        alias:    form.alias || form.client,
-        port:     form.port,
-        user:     form.user,
-        client:   form.client,
+      const info = await p4Invoke<{ info: P4Info }>("p4_test_config", {
+        port: form.port,
+        user: form.user,
+        client: form.client,
         password: form.password,
       });
-      const tempId = res.workspace.id;
-      if (!form.id) setForm((f) => ({ ...f, id: tempId }));
-      onRefresh();
-
-      const info = await p4Invoke<{ info: P4Info }>("p4_test_connection", { workspace_id: tempId });
       setTestResult({
         ok: true,
         msg: `${info.info.server_address} · ${info.info.server_version} · root: ${info.info.client_root}`,

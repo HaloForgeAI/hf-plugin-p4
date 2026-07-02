@@ -47,5 +47,5 @@ export interface SavedBookmark {
 }
 
 export type P4Page     = "workspaces" | "detail";
-export type DetailTab  = "opened" | "pending" | "history" | "sync" | "bookmarks";
+export type DetailTab  = "overview" | "opened" | "pending" | "history" | "sync" | "bookmarks";
 export type DetailModal = "submit" | "sync" | null;

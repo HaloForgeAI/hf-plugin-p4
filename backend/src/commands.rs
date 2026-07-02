@@ -22,9 +22,9 @@ fn hide_console(_command: &mut Command) {}
 // ─── Workspace credentials bundled for convenience ───────────────────────────
 
 struct WsCreds {
-    port:     String,
-    user:     String,
-    client:   String,
+    port: String,
+    user: String,
+    client: String,
     password: String,
 }
 
@@ -56,9 +56,9 @@ fn run_p4(creds: &WsCreds, args: &[&str]) -> Result<String, PluginError> {
     let mut cmd = Command::new("p4");
     hide_console(&mut cmd);
 
-    cmd.env("P4PORT",   &creds.port)
-       .env("P4USER",   &creds.user)
-       .env("P4CLIENT", &creds.client);
+    cmd.env("P4PORT", &creds.port)
+        .env("P4USER", &creds.user)
+        .env("P4CLIENT", &creds.client);
 
     if !creds.password.is_empty() {
         cmd.env("P4PASSWD", &creds.password);
@@ -115,15 +115,32 @@ fn load_creds(workspace_id: &str, ctx: &dyn PluginContext) -> Result<WsCreds, Pl
         &format!("SELECT * FROM {WORKSPACES_TABLE} WHERE id = '{eid}'"),
         &[],
     )?;
-    let row = rows.into_iter().next().ok_or_else(|| {
-        PluginError::NotFound(format!("workspace not found: {workspace_id}"))
-    })?;
+    let row = rows
+        .into_iter()
+        .next()
+        .ok_or_else(|| PluginError::NotFound(format!("workspace not found: {workspace_id}")))?;
 
     Ok(WsCreds {
-        port:     row.get("port").and_then(Value::as_str).unwrap_or("").to_string(),
-        user:     row.get("p4user").and_then(Value::as_str).unwrap_or("").to_string(),
-        client:   row.get("client").and_then(Value::as_str).unwrap_or("").to_string(),
-        password: row.get("password").and_then(Value::as_str).unwrap_or("").to_string(),
+        port: row
+            .get("port")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        user: row
+            .get("p4user")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        client: row
+            .get("client")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        password: row
+            .get("password")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
     })
 }
 
@@ -188,7 +205,7 @@ fn parse_changes_line(line: &str) -> Option<Value> {
         return None;
     }
     let number = parts[1];
-    let date   = parts[3];
+    let date = parts[3];
     let user_client = parts[5];
     let (user, client) = user_client.split_once('@').unwrap_or((user_client, ""));
 
@@ -213,6 +230,89 @@ fn parse_changes_line(line: &str) -> Option<Value> {
         "description": description,
         "status":      status,
     }))
+}
+
+#[derive(Default)]
+struct ParsedChange {
+    number: String,
+    date: String,
+    user: String,
+    client: String,
+    description: String,
+    status: String,
+}
+
+fn change_to_json(change: ParsedChange) -> Value {
+    json!({
+        "number":      change.number,
+        "date":        change.date,
+        "user":        change.user,
+        "client":      change.client,
+        "description": change.description.trim().to_string(),
+        "status":      change.status,
+    })
+}
+
+fn parse_changes_output(raw: &str, fallback_status: &str) -> Vec<Value> {
+    let mut items = Vec::new();
+    let mut current: Option<ParsedChange> = None;
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("Change ") {
+            if let Some(change) = current.take() {
+                items.push(change_to_json(change));
+            }
+
+            let parts: Vec<&str> = trimmed.splitn(7, ' ').collect();
+            if parts.len() < 6 {
+                current = None;
+                continue;
+            }
+
+            let user_client = parts[5];
+            let (user, client) = user_client.split_once('@').unwrap_or((user_client, ""));
+            let rest = parts.get(6).copied().unwrap_or("");
+            let status = if rest.contains("*pending*") {
+                "pending"
+            } else {
+                fallback_status
+            };
+            let desc = rest
+                .replace("*pending*", "")
+                .trim()
+                .trim_start_matches('\'')
+                .trim_end_matches('\'')
+                .to_string();
+
+            current = Some(ParsedChange {
+                number: parts[1].to_string(),
+                date: parts[3].to_string(),
+                user: user.to_string(),
+                client: client.to_string(),
+                description: desc,
+                status: status.to_string(),
+            });
+        } else if let Some(change) = current.as_mut() {
+            let desc_line = trimmed.trim_start_matches('\'').trim_end_matches('\'');
+            if !desc_line.is_empty() {
+                if !change.description.is_empty() {
+                    change.description.push('\n');
+                }
+                change.description.push_str(desc_line);
+            }
+        }
+    }
+
+    if let Some(change) = current.take() {
+        items.push(change_to_json(change));
+    }
+
+    if items.is_empty() {
+        raw.lines().filter_map(parse_changes_line).collect()
+    } else {
+        items
+    }
 }
 
 // ─── Workspace CRUD ───────────────────────────────────────────────────────────
@@ -241,12 +341,12 @@ pub fn p4_saved_workspaces(_args: Value, ctx: &dyn PluginContext) -> Result<Valu
 }
 
 pub fn p4_upsert_workspace(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
-    let port     = req_str(&args, "port")?;
-    let user     = req_str(&args, "user")?;
-    let client   = req_str(&args, "client")?;
-    let alias    = opt_str(&args, "alias").unwrap_or(client);
+    let port = req_str(&args, "port")?;
+    let user = req_str(&args, "user")?;
+    let client = req_str(&args, "client")?;
+    let alias = opt_str(&args, "alias").unwrap_or(client);
     let password = args["password"].as_str().unwrap_or("");
-    let id       = opt_str(&args, "id")
+    let id = opt_str(&args, "id")
         .map(str::to_owned)
         .unwrap_or_else(|| uuid_v4());
 
@@ -255,10 +355,10 @@ pub fn p4_upsert_workspace(args: Value, ctx: &dyn PluginContext) -> Result<Value
         "UPDATE {WORKSPACES_TABLE} SET \
          alias='{a}', port='{p}', p4user='{u}', client='{c}', password='{pw}' \
          WHERE id='{id}'",
-        a  = eq(alias),
-        p  = eq(port),
-        u  = eq(user),
-        c  = eq(client),
+        a = eq(alias),
+        p = eq(port),
+        u = eq(user),
+        c = eq(client),
         pw = eq(password),
         id = eq(&id),
     );
@@ -270,10 +370,10 @@ pub fn p4_upsert_workspace(args: Value, ctx: &dyn PluginContext) -> Result<Value
              (id, alias, port, p4user, client, password, added_at) VALUES \
              ('{id}', '{a}', '{p}', '{u}', '{c}', '{pw}', CURRENT_TIMESTAMP)",
             id = eq(&id),
-            a  = eq(alias),
-            p  = eq(port),
-            u  = eq(user),
-            c  = eq(client),
+            a = eq(alias),
+            p = eq(port),
+            u = eq(user),
+            c = eq(client),
             pw = eq(password),
         );
         ctx.db().execute(&insert_sql, &[])?;
@@ -293,7 +393,10 @@ pub fn p4_upsert_workspace(args: Value, ctx: &dyn PluginContext) -> Result<Value
 pub fn p4_remove_workspace(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let id = req_str(&args, "id")?;
     ctx.db().execute(
-        &format!("DELETE FROM {WORKSPACES_TABLE} WHERE id='{}'", sql_escape(id)),
+        &format!(
+            "DELETE FROM {WORKSPACES_TABLE} WHERE id='{}'",
+            sql_escape(id)
+        ),
         &[],
     )?;
     Ok(json!({ "success": true }))
@@ -323,14 +426,33 @@ pub fn p4_test_connection(args: Value, ctx: &dyn PluginContext) -> Result<Value,
     Ok(json!({ "info": info }))
 }
 
+pub fn p4_test_config(args: Value, _ctx: &dyn PluginContext) -> Result<Value, PluginError> {
+    let creds = WsCreds {
+        port: req_str(&args, "port")?.to_string(),
+        user: req_str(&args, "user")?.to_string(),
+        client: req_str(&args, "client")?.to_string(),
+        password: args["password"].as_str().unwrap_or("").to_string(),
+    };
+
+    let raw = run_p4(&creds, &["info"])?;
+    Ok(json!({ "info": parse_p4_info(&raw) }))
+}
+
 // ─── Opened files ─────────────────────────────────────────────────────────────
 
 pub fn p4_opened(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
     let creds = load_creds(workspace_id, ctx)?;
 
-    // -a: all clients (we specify our client via env), no extra flag needed
-    let raw = run_p4(&creds, &["opened"])?;
+    let raw = match run_p4(&creds, &["opened"]) {
+        Ok(raw) => raw,
+        Err(PluginError::Process(message))
+            if message.contains("not opened") || message.contains("no file(s) opened") =>
+        {
+            String::new()
+        }
+        Err(error) => return Err(error),
+    };
 
     let files: Vec<Value> = raw
         .lines()
@@ -347,13 +469,13 @@ pub fn p4_pending_changes(args: Value, ctx: &dyn PluginContext) -> Result<Value,
     let workspace_id = req_str(&args, "workspace_id")?;
     let creds = load_creds(workspace_id, ctx)?;
 
-    // -s pending: only pending, -l: long (include description)
-    let raw = run_p4(&creds, &["changes", "-s", "pending", "-l"])?;
+    // -c keeps the list focused on the selected client workspace.
+    let raw = run_p4(
+        &creds,
+        &["changes", "-s", "pending", "-c", &creds.client, "-l"],
+    )?;
 
-    let changelists: Vec<Value> = raw
-        .lines()
-        .filter_map(parse_changes_line)
-        .collect();
+    let changelists = parse_changes_output(&raw, "pending");
 
     Ok(json!({ "changelists": changelists }))
 }
@@ -364,12 +486,21 @@ pub fn p4_submitted_changes(args: Value, ctx: &dyn PluginContext) -> Result<Valu
     let limit = args["limit"].as_u64().unwrap_or(50);
 
     let limit_str = limit.to_string();
-    let raw = run_p4(&creds, &["changes", "-s", "submitted", "-m", &limit_str])?;
+    let raw = run_p4(
+        &creds,
+        &[
+            "changes",
+            "-s",
+            "submitted",
+            "-c",
+            &creds.client,
+            "-m",
+            &limit_str,
+            "-l",
+        ],
+    )?;
 
-    let changelists: Vec<Value> = raw
-        .lines()
-        .filter_map(parse_changes_line)
-        .collect();
+    let changelists = parse_changes_output(&raw, "submitted");
 
     Ok(json!({ "changelists": changelists }))
 }
@@ -379,19 +510,21 @@ pub fn p4_submitted_changes(args: Value, ctx: &dyn PluginContext) -> Result<Valu
 pub fn p4_sync(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
     let creds = load_creds(workspace_id, ctx)?;
-    let path      = opt_str(&args, "path");
+    let path = opt_str(&args, "path");
     let changelist = opt_str(&args, "changelist");
-    let force     = args["force"].as_bool().unwrap_or(false);
+    let force = args["force"].as_bool().unwrap_or(false);
 
     let mut p4_args = vec!["sync"];
-    if force { p4_args.push("-f"); }
+    if force {
+        p4_args.push("-f");
+    }
 
     // Build the filespec: "PATH" or "PATH@CL" or "@CL" or nothing (full sync)
     let filespec = match (path, changelist) {
         (Some(p), Some(cl)) => format!("{}@{}", p, cl),
-        (Some(p), None)     => p.to_string(),
-        (None,    Some(cl)) => format!("//...@{}", cl),
-        (None,    None)     => String::new(),
+        (Some(p), None) => p.to_string(),
+        (None, Some(cl)) => format!("//...@{}", cl),
+        (None, None) => String::new(),
     };
 
     let filespec_ref: &str;
@@ -412,7 +545,11 @@ pub fn p4_revert(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginEr
 
     let files: Vec<String> = args["files"]
         .as_array()
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
 
     let mut p4_args: Vec<&str> = vec!["revert"];
@@ -445,13 +582,15 @@ pub fn p4_revert_unchanged(args: Value, ctx: &dyn PluginContext) -> Result<Value
 
 pub fn p4_submit(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
-    let description  = req_str(&args, "description")?;
+    let description = req_str(&args, "description")?;
     let creds = load_creds(workspace_id, ctx)?;
     let reopen = args["reopen"].as_bool().unwrap_or(false);
 
     // Build a submit spec via -d flag (description) against the default changelist
     let mut p4_args = vec!["submit", "-d", description];
-    if reopen { p4_args.push("-r"); }
+    if reopen {
+        p4_args.push("-r");
+    }
 
     let output = run_p4(&creds, &p4_args)?;
 
@@ -491,7 +630,7 @@ pub fn p4_shelve(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginEr
 
 pub fn p4_unshelve(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
-    let source_cl    = req_str(&args, "source_changelist")?;
+    let source_cl = req_str(&args, "source_changelist")?;
     let creds = load_creds(workspace_id, ctx)?;
     let target_cl = opt_str(&args, "target_changelist");
 
@@ -512,9 +651,43 @@ pub fn p4_unshelve(args: Value, ctx: &dyn PluginContext) -> Result<Value, Plugin
 pub fn p4_diff(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
     let creds = load_creds(workspace_id, ctx)?;
+    let files: Vec<String> = args["files"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
 
     // -du: unified diff format
-    let raw = run_p4(&creds, &["diff", "-du"])?;
+    let raw = if files.is_empty() {
+        run_p4(&creds, &["diff", "-du"])?
+    } else {
+        let mut p4_args: Vec<&str> = vec!["diff", "-du"];
+        for file in &files {
+            p4_args.push(file.as_str());
+        }
+        run_p4(&creds, &p4_args)?
+    };
+    Ok(json!({ "output": raw }))
+}
+
+pub fn p4_describe(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
+    let workspace_id = req_str(&args, "workspace_id")?;
+    let changelist = req_str(&args, "changelist")?;
+    let creds = load_creds(workspace_id, ctx)?;
+    let shelved = args["shelved"].as_bool().unwrap_or(false);
+
+    let raw = if shelved {
+        run_p4(&creds, &["describe", "-S", "-s", changelist])?
+    } else {
+        run_p4(&creds, &["describe", "-s", changelist])?
+    };
+
     Ok(json!({ "output": raw }))
 }
 
@@ -536,11 +709,15 @@ pub fn p4_saved_bookmarks(args: Value, ctx: &dyn PluginContext) -> Result<Value,
 
 pub fn p4_upsert_bookmark(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let workspace_id = req_str(&args, "workspace_id")?;
-    let name         = req_str(&args, "name")?;
-    let depot_path   = req_str(&args, "depot_path")?;
-    let changelist   = args["changelist"].as_str().unwrap_or("");
-    let force        = if args["force"].as_bool().unwrap_or(false) { 1 } else { 0 };
-    let description  = args["description"].as_str().unwrap_or("");
+    let name = req_str(&args, "name")?;
+    let depot_path = req_str(&args, "depot_path")?;
+    let changelist = args["changelist"].as_str().unwrap_or("");
+    let force = if args["force"].as_bool().unwrap_or(false) {
+        1
+    } else {
+        0
+    };
+    let description = args["description"].as_str().unwrap_or("");
     let id = opt_str(&args, "id")
         .map(str::to_owned)
         .unwrap_or_else(uuid_v4);
@@ -549,11 +726,11 @@ pub fn p4_upsert_bookmark(args: Value, ctx: &dyn PluginContext) -> Result<Value,
     let update_sql = format!(
         "UPDATE {BOOKMARKS_TABLE} SET name='{n}', depot_path='{dp}', \
          changelist='{cl}', force={f}, description='{d}' WHERE id='{id}'",
-        n  = eq(name),
+        n = eq(name),
         dp = eq(depot_path),
         cl = eq(changelist),
-        f  = force,
-        d  = eq(description),
+        f = force,
+        d = eq(description),
         id = eq(&id),
     );
     let updated = ctx.db().execute(&update_sql, &[])?;
@@ -565,11 +742,11 @@ pub fn p4_upsert_bookmark(args: Value, ctx: &dyn PluginContext) -> Result<Value,
              VALUES ('{id}', '{ws}', '{n}', '{dp}', '{cl}', {f}, '{d}', CURRENT_TIMESTAMP)",
             id = eq(&id),
             ws = eq(workspace_id),
-            n  = eq(name),
+            n = eq(name),
             dp = eq(depot_path),
             cl = eq(changelist),
-            f  = force,
-            d  = eq(description),
+            f = force,
+            d = eq(description),
         );
         ctx.db().execute(&insert_sql, &[])?;
     }
@@ -580,7 +757,10 @@ pub fn p4_upsert_bookmark(args: Value, ctx: &dyn PluginContext) -> Result<Value,
 pub fn p4_remove_bookmark(args: Value, ctx: &dyn PluginContext) -> Result<Value, PluginError> {
     let id = req_str(&args, "id")?;
     ctx.db().execute(
-        &format!("DELETE FROM {BOOKMARKS_TABLE} WHERE id='{}'", sql_escape(id)),
+        &format!(
+            "DELETE FROM {BOOKMARKS_TABLE} WHERE id='{}'",
+            sql_escape(id)
+        ),
         &[],
     )?;
     Ok(json!({ "success": true }))
@@ -595,10 +775,11 @@ fn uuid_v4() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos();
-    format!("{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
+    format!(
+        "{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
         nanos,
         (nanos >> 16) & 0xFFFF,
-        (nanos >> 4)  & 0xFFF,
+        (nanos >> 4) & 0xFFF,
         0x8000 | ((nanos >> 2) & 0x3FFF),
         nanos as u64 * 0x1000003D1,
     )

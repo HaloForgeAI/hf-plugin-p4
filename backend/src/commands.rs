@@ -75,13 +75,23 @@ fn run_p4(creds: &WsCreds, args: &[&str]) -> Result<String, PluginError> {
         ))
     })?;
 
+    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+    let output = join_command_output(&stdout, &stderr);
+
     if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        Ok(output)
     } else {
-        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let msg = if !stderr.is_empty() { stderr } else { stdout };
-        Err(PluginError::Process(format_p4_error(&msg)))
+        Err(PluginError::Process(format_p4_error(&output)))
+    }
+}
+
+fn join_command_output(stdout: &str, stderr: &str) -> String {
+    match (stdout.trim(), stderr.trim()) {
+        ("", "") => String::new(),
+        (stdout, "") => stdout.to_string(),
+        ("", stderr) => stderr.to_string(),
+        (stdout, stderr) => format!("{stdout}\n{stderr}"),
     }
 }
 

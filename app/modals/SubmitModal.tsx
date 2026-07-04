@@ -6,18 +6,20 @@ import type { OpenedFile } from "../types";
 import { p4Invoke } from "../ipc";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { ModalOverlay } from "../components/ModalOverlay";
-import { actionIcon, actionColor, fileBasename } from "../components/fileUtils";
+import { actionIcon, actionColor, depotPathWithRev } from "../components/fileUtils";
 
 export function SubmitModal({
   workspaceId,
   openedFiles,
   onClose,
   onSubmitted,
+  onError,
 }: {
   workspaceId: string;
   openedFiles: OpenedFile[];
   onClose: () => void;
   onSubmitted: (output: string) => void;
+  onError?: (message: string) => void;
 }) {
   const t = useP4T();
   const [desc, setDesc] = useState("");
@@ -37,7 +39,9 @@ export function SubmitModal({
       });
       onSubmitted(res.output);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      onError?.(message);
     } finally {
       setBusy(false);
     }
@@ -58,10 +62,10 @@ export function SubmitModal({
         ) : (
           <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-background/50 divide-y divide-border/40">
             {openedFiles.slice(0, 50).map((f, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5">
+              <div key={i} className="flex items-start gap-2 px-3 py-1.5">
                 {actionIcon(f.action)}
-                <span className={clsx("text-xs font-mono truncate", actionColor(f.action))}>
-                  {fileBasename(f.depot_path)}
+                <span className={clsx("min-w-0 flex-1 break-all font-mono text-xs leading-snug", actionColor(f.action))} title={f.depot_path}>
+                  {depotPathWithRev(f.depot_path, f.rev)}
                 </span>
                 <span className="ml-auto text-[10px] text-foreground-secondary/40 shrink-0">{f.action}</span>
               </div>

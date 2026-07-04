@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useP4T } from "../i18n";
 import type { OpenedFile } from "../types";
-import { actionIcon, actionColor, fileBasename, depotDir } from "../components/fileUtils";
+import { actionIcon, actionColor, depotPathWithRev } from "../components/fileUtils";
 
 export function OpenedFilesTab({
   files,
@@ -66,11 +66,11 @@ export function OpenedFilesTab({
               >
                 {actionIcon(f.action)}
                 <div className="min-w-0 flex-1">
-                  <span className={clsx("text-xs font-mono truncate block", actionColor(f.action))}>
-                    {fileBasename(f.depot_path)}
+                  <span className={clsx("block break-all font-mono text-xs leading-snug", actionColor(f.action))} title={f.depot_path}>
+                    {depotPathWithRev(f.depot_path, f.rev)}
                   </span>
-                  <span className="text-[10px] text-foreground-secondary/40 truncate block">
-                    {depotDir(f.depot_path)}#{f.rev}
+                  <span className="block text-[10px] text-foreground-secondary/40">
+                    {f.change === "default" ? t("p4.defaultChange") : `${t("p4.changelist")} #${f.change}`}
                   </span>
                 </div>
                 <span className="shrink-0 rounded bg-background/60 px-1.5 py-0.5 text-[9px] font-mono text-foreground-secondary/50">

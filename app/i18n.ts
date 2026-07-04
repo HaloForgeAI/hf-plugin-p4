@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 
 const en = {
+  "p4.name":                    "Perforce",
+
   // Navigation
   "p4.page.workspaces":         "Workspaces",
   "p4.page.workspacesDesc":     "Manage Perforce server connections",
@@ -123,7 +125,11 @@ const en = {
   "p4.feedback.submitted":      "Changelist submitted successfully.",
   "p4.feedback.shelved":        "Files shelved.",
   "p4.feedback.unshelved":      "Files unshelved into default changelist.",
+  "p4.feedback.actionRunning":  "Operation running...",
   "p4.feedback.actionDone":     "Done.",
+  "p4.feedback.successTitle":   "{action} succeeded",
+  "p4.feedback.errorTitle":     "{action} failed",
+  "p4.feedback.details":        "Command details",
   "p4.feedback.bookmarkSaved":  "Bookmark saved.",
   "p4.feedback.bookmarkRemoved":"Bookmark removed.",
 } as const;
@@ -131,6 +137,8 @@ const en = {
 type P4TranslationKey = keyof typeof en;
 
 const zh: Record<P4TranslationKey, string> = {
+  "p4.name":                    "Perforce",
+
   "p4.page.workspaces":         "工作区",
   "p4.page.workspacesDesc":     "管理 Perforce 服务器连接",
   "p4.backToWorkspaces":        "返回工作区列表",
@@ -230,7 +238,11 @@ const zh: Record<P4TranslationKey, string> = {
   "p4.feedback.submitted":      "变更列表提交成功。",
   "p4.feedback.shelved":        "文件已搁置。",
   "p4.feedback.unshelved":      "文件已取消搁置到默认变更列表。",
+  "p4.feedback.actionRunning":  "操作正在执行...",
   "p4.feedback.actionDone":     "操作完成。",
+  "p4.feedback.successTitle":   "{action} 成功",
+  "p4.feedback.errorTitle":     "{action} 失败",
+  "p4.feedback.details":        "命令详情",
   "p4.feedback.bookmarkSaved":  "书签已保存。",
   "p4.feedback.bookmarkRemoved":"书签已删除。",
 };
@@ -241,8 +253,13 @@ export function useP4T() {
   const locale = getLocale();
   const dict = translations[locale] ?? en;
 
-  return useCallback((key: P4TranslationKey): string => {
-    return dict[key] ?? (en as Record<P4TranslationKey, string>)[key] ?? key;
+  return useCallback((key: P4TranslationKey, vars?: Record<string, string | number>): string => {
+    const raw = dict[key] ?? (en as Record<P4TranslationKey, string>)[key] ?? key;
+    if (!vars) return raw;
+    return Object.entries(vars).reduce<string>(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      raw,
+    );
   }, [dict]);
 }
 

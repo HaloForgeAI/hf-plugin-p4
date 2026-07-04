@@ -24,3 +24,7 @@ export function depotDir(depotPath: string): string {
   const parts = depotPath.split("/");
   return parts.slice(0, -1).join("/");
 }
+
+export function depotPathWithRev(depotPath: string, rev?: number): string {
+  return rev && rev > 0 ? `${depotPath}#${rev}` : depotPath;
+}

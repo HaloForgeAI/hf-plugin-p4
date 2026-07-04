@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { OperationResultDialog, type OperationResultDialogState } from "@haloforge/plugin-sdk";
 import clsx from "clsx";
 import { ArrowLeft, BookMarked, Clock, FileDiff, Layers, Loader2, RefreshCw, Upload } from "lucide-react";
 import { useP4T } from "../i18n";
@@ -6,7 +7,7 @@ import type { DetailModal, DetailTab, OpenedFile, P4Changelist, P4Info, SavedWor
 import { p4Invoke } from "../ipc";
 import { ActionButton } from "../components/ActionButton";
 import { FeedbackBanner } from "../components/FeedbackBanner";
-import { fileBasename } from "../components/fileUtils";
+import { depotPathWithRev } from "../components/fileUtils";
 import { OpenedFilesTab } from "../tabs/OpenedFilesTab";
 import { ChangelistsTab } from "../tabs/ChangelistsTab";
 import { BookmarksTab } from "../tabs/BookmarksTab";
@@ -48,6 +49,7 @@ function OutputPanel({
   onClose: () => void;
 }) {
   const t = useP4T();
+  const outputLines = output.split("\n");
 
   return (
     <div className="border-b border-border bg-background/60">
@@ -58,17 +60,41 @@ function OutputPanel({
           {t("p4.action.close")}
         </button>
       </div>
-      <div className="max-h-[340px] overflow-auto p-3">
+      <div className="max-h-[420px] overflow-auto">
         {loading ? (
           <div className="py-10 text-center text-xs text-foreground-secondary/45">{t("p4.loadingInfo")}</div>
         ) : output.trim() ? (
-          <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground-secondary">{output}</pre>
+          <pre className="hf-p4-output whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground-secondary">
+            {outputLines.map((line, index) => (
+              <span key={`${index}:${line.slice(0, 12)}`} className={outputLineClass(line)}>
+                {line || " "}
+                {"\n"}
+              </span>
+            ))}
+          </pre>
         ) : (
           <div className="py-10 text-center text-xs text-foreground-secondary/45">{t("p4.panel.empty")}</div>
         )}
       </div>
     </div>
   );
+}
+
+function outputLineClass(line: string) {
+  if (line.startsWith("+++ ") || line.startsWith("--- ") || line.startsWith("==== ")) return "hf-p4-output-file";
+  if (line.startsWith("@@")) return "hf-p4-output-hunk";
+  if (line.startsWith("+")) return "hf-p4-output-add";
+  if (line.startsWith("-")) return "hf-p4-output-delete";
+  return "";
+}
+
+function formatActionOutput(output: string | undefined, fallback: string) {
+  const trimmed = output?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+function firstOutputLine(message: string) {
+  return message.trim().split(/\r?\n/).find((line) => line.trim().length > 0)?.trim() || message;
 }
 
 export function DetailPage({
@@ -91,6 +117,7 @@ export function DetailPage({
   const [success, setSuccess] = useState<string | null>(null);
   const [modal, setModal] = useState<DetailModal>(null);
   const [outputPanel, setOutputPanel] = useState<{ title: string; output: string; loading: boolean } | null>(null);
+  const [operationResult, setOperationResult] = useState<OperationResultDialogState | null>(null);
 
   const wsId = workspace.id;
 
@@ -123,36 +150,50 @@ export function DetailPage({
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }, [openedFiles]);
 
-  const runAction = async (fn: () => Promise<string | undefined>) => {
+  const runAction = async (label: string, fn: () => Promise<string | undefined>) => {
     setBusy(true);
     setError(null);
-    setSuccess(null);
+    setSuccess(t("p4.feedback.actionRunning"));
     try {
       const msg = await fn();
-      setSuccess(msg ?? t("p4.feedback.actionDone"));
+      const message = formatActionOutput(msg, t("p4.feedback.actionDone"));
+      setSuccess(message);
+      setOperationResult({
+        tone: "success",
+        title: t("p4.feedback.successTitle", { action: label }),
+        summary: firstOutputLine(message),
+        details: message,
+      });
       await loadAll();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setOperationResult({
+        tone: "error",
+        title: t("p4.feedback.errorTitle", { action: label }),
+        summary: firstOutputLine(message),
+        details: message,
+      });
     } finally {
       setBusy(false);
     }
   };
 
   const handleSyncAll = () =>
-    void runAction(async () => {
+    void runAction(t("p4.action.syncAll"), async () => {
       const res = await p4Invoke<{ output: string }>("p4_sync", { workspace_id: wsId });
       return res.output || t("p4.feedback.synced");
     });
 
   const handleRevertUnchanged = () =>
-    void runAction(async () => {
+    void runAction(t("p4.action.revertUnchanged"), async () => {
       const res = await p4Invoke<{ output: string }>("p4_revert_unchanged", { workspace_id: wsId });
       return res.output || t("p4.feedback.reverted");
     });
 
   const handleRevertFile = (depotPath: string) => {
     if (!window.confirm(`${t("p4.confirm.revertFile")}\n${depotPath}`)) return;
-    void runAction(async () => {
+    void runAction(t("p4.action.revert"), async () => {
       const res = await p4Invoke<{ output: string }>("p4_revert", { workspace_id: wsId, files: [depotPath] });
       return res.output || t("p4.feedback.reverted");
     });
@@ -166,7 +207,14 @@ export function DetailPage({
       setOutputPanel({ title: `${t("p4.action.diff")} · ${depotPath}`, output: res.output || "", loading: false });
     } catch (e) {
       setOutputPanel(null);
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setOperationResult({
+        tone: "error",
+        title: t("p4.feedback.errorTitle", { action: t("p4.action.diff") }),
+        summary: firstOutputLine(message),
+        details: message,
+      });
     }
   };
 
@@ -178,18 +226,25 @@ export function DetailPage({
       setOutputPanel({ title: `${t("p4.changelist")} #${cl}`, output: res.output || "", loading: false });
     } catch (e) {
       setOutputPanel(null);
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setOperationResult({
+        tone: "error",
+        title: t("p4.feedback.errorTitle", { action: t("p4.action.details") }),
+        summary: firstOutputLine(message),
+        details: message,
+      });
     }
   };
 
   const handleShelve = (cl: string) =>
-    void runAction(async () => {
+    void runAction(t("p4.action.shelve"), async () => {
       const res = await p4Invoke<{ output: string }>("p4_shelve", { workspace_id: wsId, changelist: cl });
       return res.output || t("p4.feedback.shelved");
     });
 
   const handleUnshelve = (sourceCl: string) =>
-    void runAction(async () => {
+    void runAction(t("p4.action.unshelve"), async () => {
       const res = await p4Invoke<{ output: string }>("p4_unshelve", {
         workspace_id: wsId,
         source_changelist: sourceCl,
@@ -208,6 +263,12 @@ export function DetailPage({
 
   return (
     <section className="mx-auto flex min-h-[700px] max-w-6xl flex-col overflow-hidden rounded-lg border border-border bg-surface/20">
+      <OperationResultDialog
+        result={operationResult}
+        onClose={() => setOperationResult(null)}
+        detailsLabel={t("p4.feedback.details")}
+        closeLabel={t("p4.action.close")}
+      />
       <div className="space-y-3 border-b border-border p-4">
         <div className="flex flex-wrap items-start gap-3">
           <button
@@ -310,8 +371,12 @@ export function DetailPage({
                         <div key={file.depot_path} className="flex items-center gap-2 border-b border-border/25 px-3 py-2">
                           <span className="rounded bg-background px-1.5 py-0.5 text-[10px] text-primary">{file.action}</span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-mono text-xs text-foreground">{fileBasename(file.depot_path)}</p>
-                            <p className="truncate text-[10px] text-foreground-secondary/45">{file.depot_path}</p>
+                            <p className="break-all font-mono text-xs leading-snug text-foreground" title={file.depot_path}>
+                              {depotPathWithRev(file.depot_path, file.rev)}
+                            </p>
+                            <p className="text-[10px] text-foreground-secondary/45">
+                              {file.change === "default" ? t("p4.defaultChange") : `${t("p4.changelist")} #${file.change}`}
+                            </p>
                           </div>
                           <button
                             onClick={() => void handleDiffFile(file.depot_path)}
@@ -405,8 +470,27 @@ export function DetailPage({
               <BookmarksTab
                 workspaceId={wsId}
                 onSyncStart={() => { setBusy(true); setError(null); setSuccess(null); }}
-                onSyncDone={(msg) => { setBusy(false); setSuccess(msg); }}
-                onError={(msg) => { setBusy(false); setError(msg); }}
+                onSyncDone={(msg) => {
+                  const message = formatActionOutput(msg, t("p4.feedback.synced"));
+                  setBusy(false);
+                  setSuccess(message);
+                  setOperationResult({
+                    tone: "success",
+                    title: t("p4.feedback.successTitle", { action: t("p4.bookmark.sync") }),
+                    summary: firstOutputLine(message),
+                    details: message,
+                  });
+                }}
+                onError={(msg) => {
+                  setBusy(false);
+                  setError(msg);
+                  setOperationResult({
+                    tone: "error",
+                    title: t("p4.feedback.errorTitle", { action: t("p4.bookmark.sync") }),
+                    summary: firstOutputLine(msg),
+                    details: msg,
+                  });
+                }}
               />
             )}
           </>
@@ -420,8 +504,24 @@ export function DetailPage({
           onClose={() => setModal(null)}
           onSubmitted={(output) => {
             setModal(null);
-            setSuccess(output || t("p4.feedback.submitted"));
+            const message = formatActionOutput(output, t("p4.feedback.submitted"));
+            setSuccess(message);
+            setOperationResult({
+              tone: "success",
+              title: t("p4.feedback.successTitle", { action: t("p4.submit.title") }),
+              summary: firstOutputLine(message),
+              details: message,
+            });
             void loadAll();
+          }}
+          onError={(message) => {
+            setError(message);
+            setOperationResult({
+              tone: "error",
+              title: t("p4.feedback.errorTitle", { action: t("p4.submit.title") }),
+              summary: firstOutputLine(message),
+              details: message,
+            });
           }}
         />
       )}
@@ -431,8 +531,24 @@ export function DetailPage({
           onClose={() => setModal(null)}
           onSynced={(output) => {
             setModal(null);
-            setSuccess(output);
+            const message = formatActionOutput(output, t("p4.feedback.synced"));
+            setSuccess(message);
+            setOperationResult({
+              tone: "success",
+              title: t("p4.feedback.successTitle", { action: t("p4.sync.title") }),
+              summary: firstOutputLine(message),
+              details: message,
+            });
             void loadAll();
+          }}
+          onError={(message) => {
+            setError(message);
+            setOperationResult({
+              tone: "error",
+              title: t("p4.feedback.errorTitle", { action: t("p4.sync.title") }),
+              summary: firstOutputLine(message),
+              details: message,
+            });
           }}
         />
       )}

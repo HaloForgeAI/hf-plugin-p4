@@ -100,3 +100,34 @@
   border-color: var(--hf-p4-accent-border) !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--hf-p4-accent) 16%, transparent) !important;
 }
+
+.hf-p4-output {
+  background-color: color-mix(in srgb, var(--hf-p4-control) 94%, transparent);
+}
+
+.hf-p4-output span {
+  display: block;
+  min-height: 1.35em;
+  padding: 0 12px;
+}
+
+.hf-p4-output-add {
+  background-color: var(--hf-p4-success-soft);
+  color: var(--hf-p4-success);
+}
+
+.hf-p4-output-delete {
+  background-color: var(--hf-p4-danger-soft);
+  color: var(--hf-p4-danger);
+}
+
+.hf-p4-output-hunk {
+  background-color: var(--hf-p4-accent-soft);
+  color: var(--hf-p4-accent);
+  font-weight: 600;
+}
+
+.hf-p4-output-file {
+  color: var(--color-foreground, #15171a);
+  font-weight: 600;
+}

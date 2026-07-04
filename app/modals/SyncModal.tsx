@@ -12,6 +12,7 @@ export function SyncModal({
   initialForce,
   onClose,
   onSynced,
+  onError,
 }: {
   workspaceId: string;
   initialPath?: string;
@@ -19,6 +20,7 @@ export function SyncModal({
   initialForce?: boolean;
   onClose: () => void;
   onSynced: (output: string) => void;
+  onError?: (message: string) => void;
 }) {
   const t = useP4T();
   const [path, setPath] = useState(initialPath ?? "");
@@ -39,7 +41,9 @@ export function SyncModal({
       });
       onSynced(res.output || t("p4.feedback.synced"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      onError?.(message);
     } finally {
       setBusy(false);
     }
